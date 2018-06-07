@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<head>
+  <script src="http://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.0/moment.min.js"></script>
+
+  <style>
+    html, body, div, span, applet, object, iframe,
+    h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+    a, abbr, acronym, address, big, cite, code,
+    del, dfn, em, font, img, ins, kbd, q, s, samp,
+    small, strike, strong, sub, sup, tt, var,
+    b, u, i, center,
+    dl, dt, dd, ol, ul, li,
+    fieldset, form, label, legend,
+    table, caption, tbody, tfoot, thead, tr, th, td {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      outline: 0;
+      font-size: 100%;
+      vertical-align: baseline;
+      background: transparent;
+    }
+
+    div.header {
+      text-align: center;
+      color: white;
+    }
+
+    h1.header-title {
+      margin-top: 5%;
+    }
+
+    h1.header-stop {
+      margin-top: 1%;
+    }
+
+    body {
+      line-height: 1;
+      text-align: center;
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 20px;
+      line-height: 2em;
+      overflow: hidden;
+      background-color: rgb(0, 0, 0);
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-weight: normal;
+      clear: both;
+    }
+
+    h1 {
+      font-size: 2em;
+      font-weight: bold;
+      letter-spacing: .1em;
+    }
+
+    p {
+      margin-bottom: 2em;
+      margin: 0;
+      line-height: 1.5em;
+    }
+
+    table {
+      border-collapse: collapse;
+      border-spacing: 0;
+      margin: 0;
+      text-align: left;
+      width: 100%;
+    }
+
+    th {
+      vertical-align: middle;
+      background-color: #fff;
+      padding: .5em;
+      font-size: 1.4em;
+      line-height: 1.1em;
+      width: 60%;
+      border-bottom: 2px solid #999;
+    }
+
+    td {
+      vertical-align: middle;
+      padding: 0.9em 1.5em;
+      font-size: 1.0em;
+      font-weight: bold;
+      line-height: 1.1em;
+    }
+
+    tr.even {
+      background-color: #EEEEEE;
+    }
+
+    tr.odd {
+      background-color: #E0E0E0;
+    }
+
+    tr {
+      border: 1px solid rgb(150,150,150);
+    }
+
+    td.distance {
+      font-size: 1.2em;
+      white-space: nowrap;
+      padding: 0.2em 1em 0.2em 0;
+    }
+
+    .arrivals {
+      width: 70%;
+      float: left;
+      top: 90;
+      bottom: 0;
+      background: rgb(50,50,50);
+    }
+
+    .sign {
+      background-color: white;
+      color: black;
+      font-weight: bold;
+      font-size: 2em;
+      padding: 0 0.3em 0 0.3em;
+      margin: 0 0.2em 0.4em 0.2em;
+      text-align: center;
+      line-height: 1em;
+      border-left-width: 15px;
+      border-left-style: solid;
+      border-right: 2px solid rgb(150,150,150);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <h1 class="header-title">Pitt PIDS</h1>
+    <h1 class="header-stop"></h1>
+  </div>
+
+  <hr>
+
+  <div class="arrivals" style="width: 70%;">
+    <table style="float: center;">
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    stop = 'Cathedral of Learning';
+
+    var lineColors = {
+      "10A": "#04BB84",
+      "10B": "#FF0080",
+      "15A": "#FF80FF",
+      "20A": "#800080",
+      "20B": "#9B004E",
+      "25A": "#408080",
+      "30A": "#FF0000",
+      "30B": "#FF8000",
+      "30C": "#59A5F9",
+      "40A": "#00BBBB",
+      "Bridgeside": "#400000"
+    };
+
+    function getData() {
+      $.ajax({
+        type: 'GET',
+        crossDomain: true,
+        dataType: 'jsonp',
+        jsonp: 'method',
+        url: 'http://www.pittshuttle.com/Services/JSONPRelay.svc/GetMapStopEstimates?TimesPerStopString=8&ApiKey=8882812681',
+        success: (body) => {
+          showData({
+            stopName: stop,
+            arrivals: body.reduce((arr, route) => {
+              var stops = route.RouteStops.filter((routeStop) => {
+                return routeStop.Description.includes(stop);
+              });
+
+              if (stops.length > 0) {
+                var routeCode = route.Description.trim().split(' ')[0];
+                arr.push({
+                  route: route.Description.trim(),
+                  routeCode: routeCode,
+                  lineColor: lineColors[routeCode],
+                  arrivals: stops[0].Estimates.map((estimate) => {
+                    return moment()
+                    .add({ seconds: estimate.SecondsToStop })
+                    .diff(moment(), 'minutes');
+                  }).sort()
+                });
+              }
+
+              return arr;
+            }, [])
+          });
+        }
+      });
+    };
+
+    function showData(data) {
+      $('h1.header-stop').html(stop);
+
+      data.arrivals.forEach((routeInfo, index) => {
+        var trClass;
+
+        if ((index % 2) === 0) {
+          trClass = 'even';
+        } else {
+          trClass = 'odd';
+        }
+
+        if (index == data.arrivals.length - 1) {
+          trClass += ' last';
+        }
+
+        var arrivalsHTML = routeInfo.arrivals.sort().map((e) => { return `<p>${e} minutes</p>` }).join('');
+
+        $('tbody').append(`
+          <tr class="${trClass}">
+            <td class="sign" style="border-left-color: ${routeInfo.lineColor};">${routeInfo.routeCode}</td>
+            <td>${routeInfo.route}</td>
+            <td class="distance">${arrivalsHTML}</td>
+          </tr>
+        `);
+      });
+    };
+
+    $(document).ready(getData);
+  </script>
+</body>
